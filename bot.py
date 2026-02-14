@@ -20,6 +20,8 @@ def get_db_connection():
 def create_tables():
     conn = get_db_connection()
     cur = conn.cursor()
+
+    # Tabla usuarios
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
@@ -28,9 +30,19 @@ def create_tables():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     """)
+
+    # Tabla miembros del grupo
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS group_members (
+            id SERIAL PRIMARY KEY,
+            phone_number TEXT UNIQUE
+        );
+    """)
+
     conn.commit()
     cur.close()
     conn.close()
+
 
 
 create_tables()
@@ -73,6 +85,51 @@ def webhook():
                             send_message(from_number, "Aviso enviado 📢")
                         else:
                             send_message(from_number, "No eres administrador ❌")
+                            elif text.startswith("agregargrupo "):
+    if is_admin(from_number):
+        number = text.replace("agregargrupo ", "").strip()
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO group_members (phone_number) VALUES (%s) ON CONFLICT DO NOTHING;",
+            (number,)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        send_message(from_number, "✅ Miembro agregado al grupo.")
+    else:
+        send_message(from_number, "❌ Solo administradores pueden agregar miembros.")
+
+
+elif text.startswith("alertagrupo "):
+    if is_admin(from_number):
+        alert_message = text.replace("alertagrupo ", "").strip()
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT phone_number FROM group_members;")
+        members = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        formatted_message = f"""🚨 AVISO URGENTE 🚨
+
+━━━━━━━━━━━━━━━━━━
+{alert_message}
+━━━━━━━━━━━━━━━━━━
+
+⚠️ Atención inmediata."""
+
+        for member in members:
+            send_message(member[0], formatted_message)
+
+        send_message(from_number, "✅ Aviso enviado al grupo.")
+    else:
+        send_message(from_number, "❌ Solo administradores pueden enviar avisos.")
+
 
                     else:
                         send_message(from_number, "Comandos disponibles:\nadmin\naviso mensaje")
