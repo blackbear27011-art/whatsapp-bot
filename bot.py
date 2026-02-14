@@ -1,145 +1,67 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
+from flask import Flask, request, jsonify
+import requests
 import os
 
-PROFILE_DIR = os.path.abspath("./profile")
+app = Flask(__name__)
 
-options = webdriver.ChromeOptions()
-options.binary_location = "/snap/bin/chromium"
-options.add_argument(f"--user-data-dir={PROFILE_DIR}")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
+VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN")
+WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN")
+PHONE_NUMBER_ID = os.environ.get("PHONE_NUMBER_ID")
 
-driver = webdriver.Chrome(options=options)
-driver.get("https://web.whatsapp.com")
+# 🔹 Verificación del webhook
+@app.route("/webhook", methods=["GET"])
+def verify():
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
 
-print("Escanea el QR...")
-time.sleep(20)
+    if token == VERIFY_TOKEN:
+        return challenge
+    return "Error de verificación", 403
 
-print("Bot activo")
 
-last_text = ""
+# 🔹 Recibir mensajes
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.get_json()
 
-while True:
-    try:
-        chat = driver.find_element(By.XPATH, "//div[@role='textbox']/../../..")
-        texto = chat.text
+    if data.get("entry"):
+        for entry in data["entry"]:
+            for change in entry["changes"]:
+                if change["value"].get("messages"):
+                    message = change["value"]["messages"][0]
+                    from_number = message["from"]
+                    text = message["text"]["body"]
 
-        if texto != last_text:
-            last_text = texto
-            print("Nuevo cambio detectado")
+                    print("Mensaje recibido:", text)
 
-            if "!ping" in texto.split("\n")[-1]:
-                caja = driver.find_element(By.XPATH, "//div[@role='textbox']")
-                caja.send_keys("pong")
-                caja.send_keys(Keys.ENTER)
+                    if text.lower() == "hola":
+                        send_message(from_number, "Hola 👋 Bienvenida a mi bot 🚀")
+                    else:
+                        send_message(from_number, "No entendí tu mensaje 😅")
 
-    except Exception as e:
-        print("Error:", e)
+    return "ok", 200
 
-    time.sleep(3)
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
-import os
 
-PROFILE_DIR = os.path.abspath("./profile")
+# 🔹 Función para enviar mensaje
+def send_message(to, message):
+    url = f"https://graph.facebook.com/v18.0/{PHONE_NUMBER_ID}/messages"
 
-options = webdriver.ChromeOptions()
-options.binary_location = "/snap/bin/chromium"
-options.add_argument(f"--user-data-dir={PROFILE_DIR}")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json"
+    }
 
-driver = webdriver.Chrome(options=options)
-driver.get("https://web.whatsapp.com")
+    data = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "text",
+        "text": {
+            "body": message
+        }
+    }
 
-print("Escanea el QR...")
-time.sleep(20)
+    requests.post(url, headers=headers, json=data)
 
-print("Bot activo")
 
-last_message = ""
-
-while True:
-    try:
-        mensajes = driver.find_elements(By.XPATH, "//div[contains(@class,'message-in')]//span[@dir='ltr']")
-        
-        if mensajes:
-            mensaje_actual = mensajes[-1].text
-
-            if mensaje_actual != last_message:
-                last_message = mensaje_actual
-                print("Mensaje recibido:", mensaje_actual)
-
-                if mensaje_actual == "!ping":
-                    caja = driver.find_element(By.XPATH, "//div[@contenteditable='true']")
-                    caja.send_keys("pong")
-                    caja.send_keys(Keys.ENTER)
-
-    except Exception as e:
-        print("Error:", e)
-
-    time.sleep(2)
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
-import os
-
-PROFILE_DIR = os.path.abspath("./profile")
-
-options = webdriver.ChromeOptions()
-options.binary_location = "/snap/bin/chromium"
-options.add_argument(f"--user-data-dir={PROFILE_DIR}")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-
-driver = webdriver.Chrome(options=options)
-driver.get("https://web.whatsapp.com")
-
-print("Escanea el QR...")
-time.sleep(20)
-
-print("Bot activo")
-
-while True:
-    try:
-        mensajes = driver.find_elements(By.XPATH, "//div[contains(@class,'message-in')]")
-        if mensajes:
-            ultimo = mensajes[-1].text.strip()
-            if ultimo == "!ping":
-                caja = driver.switch_to.active_element
-                caja.send_keys("pong" + Keys.ENTER)
-                time.sleep(2)
-    except:
-        pass
-
-    time.sleep(3)
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import time
-import os
-
-PROFILE_DIR = os.path.abspath("./profile")
-
-options = webdriver.ChromeOptions()
-options.binary_location = "/snap/bin/chromium"
-options.add_argument(f"--user-data-dir={PROFILE_DIR}")
-options.add_argument("--no-sandbox")
-options.add_argument("--disable-dev-shm-usage")
-
-driver = webdriver.Chrome(options=options)
-driver.get("https://web.whatsapp.com")
-
-print("Escanea el QR...")
-time.sleep(30)
-
-print("Bot activo")
-
-while True:
-    time.sleep(5)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)
