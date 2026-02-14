@@ -121,7 +121,6 @@ def is_admin(phone):
     return result and result[0]
 
 
-# 🔹 Enviar aviso a todos
 def broadcast(message):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -130,8 +129,17 @@ def broadcast(message):
     cur.close()
     conn.close()
 
+    formatted_message = f"""🚨🚨🚨 AVISO URGENTE 🚨🚨🚨
+
+━━━━━━━━━━━━━━━━━━
+{message}
+━━━━━━━━━━━━━━━━━━
+
+⚠️ Por favor revisar inmediatamente.
+— Administración"""
+
     for user in users:
-        send_message(user[0], message)
+        send_message(user[0], formatted_message)
 
 
 # 🔹 Enviar mensaje WhatsApp
